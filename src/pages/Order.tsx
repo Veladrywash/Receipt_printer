@@ -45,9 +45,11 @@ export default function OrderPage() {
     "white-pillow-cover",
     "white-towel",
     "white-bed-cover-double",
+    "white-bed-cover-single",
     "colour-pillow-cover",
     "colour-towel",
-    "colour-bedcover-double",
+    "colour-bed-cover-double",
+    "colour-bed-cover-single",
     "double-bedcover",
     "bed-sheet",
     "colour-blanket",
@@ -55,12 +57,12 @@ export default function OrderPage() {
   ];
 
   const customerSuggestions = [
-    "jk residency toll plaza",
-    "jk resort",
-    "jk village resort ukl",
-    "url lodge",
-    "url resort",
-    "jk paradise",
+    "JK Residency Toll Plaza",
+    "JK Resort",
+    "JK Village Resort Ukl",
+    "URC Lodge",
+    "URC Resort",
+    "JK Paradise",
   ];
 
   const filteredItemSuggestions = (itemId: string) =>
