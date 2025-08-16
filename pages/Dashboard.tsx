@@ -31,8 +31,6 @@ export default function Dashboard() {
   };
 
   const deleteAllOrders = async () => {
-    // Note: A real implementation would have a dedicated API for this.
-    // This is a simple client-side loop.
     for (const order of orders) {
       await removeOrder(order.id);
     }
@@ -43,11 +41,11 @@ export default function Dashboard() {
     const data = orders.map((order) => ({
       "Order Number": order.id,
       Customer: order.customerName || "-",
+      "Phone Number": order.phoneNumber || "-",
       Items: order.items.length,
       Total: formatINR(order.items.reduce((s, it) => s + it.qty * it.price, 0)),
       Date: formatDateTime(order.createdAt),
     }));
-
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Orders");
@@ -57,19 +55,18 @@ export default function Dashboard() {
   const exportToPDF = () => {
     const doc = new jsPDF();
     doc.text("Orders Export", 14, 15);
-
     autoTable(doc, {
       startY: 20,
-      head: [["Order Number", "Customer", "Items", "Total", "Date"]],
+      head: [["Order Number", "Customer", "Phone Number", "Items", "Total", "Date"]],
       body: orders.map((order) => [
         order.id,
         order.customerName || "-",
+        order.phoneNumber || "-",
         order.items.length,
         formatINR(order.items.reduce((s, it) => s + it.qty * it.price, 0)),
         formatDateTime(order.createdAt),
       ]),
     });
-
     doc.save(`orders_export_${new Date().toISOString().split("T")[0]}.pdf`);
   };
 
@@ -85,7 +82,6 @@ export default function Dashboard() {
           <Button className="w-full md:w-auto" variant="outline" onClick={() => navigate("/login")}>Back</Button>
         </div>
       </header>
-
       <section className="container pb-12">
         <Card>
           <CardHeader>
@@ -104,6 +100,7 @@ export default function Dashboard() {
                           <span className="text-sm text-muted-foreground">{formatDateTime(o.createdAt)}</span>
                         </div>
                         <div className="text-sm">Customer: {o.customerName || "-"}</div>
+                        <div className="text-sm">Phone: {o.phoneNumber || "-"}</div>
                         <div className="text-sm">Items: {o.items.length}</div>
                         <div className="text-base font-medium">Total: {formatINR(total)}</div>
                         <div className="pt-2 grid grid-cols-2 gap-2">
@@ -127,6 +124,7 @@ export default function Dashboard() {
                     <tr className="border-b">
                       <th className="py-2 pr-4">Order Number</th>
                       <th className="py-2 pr-4">Customer</th>
+                      <th className="py-2 pr-4">Phone Number</th>
                       <th className="py-2 pr-4">Items</th>
                       <th className="py-2 pr-4">Total</th>
                       <th className="py-2 pr-4">Date</th>
@@ -140,6 +138,7 @@ export default function Dashboard() {
                         <tr key={o.id} className="border-b last:border-0">
                           <td className="py-2 pr-4 font-medium">{o.id}</td>
                           <td className="py-2 pr-4">{o.customerName || "-"}</td>
+                          <td className="py-2 pr-4">{o.phoneNumber || "-"}</td>
                           <td className="py-2 pr-4">{o.items.length}</td>
                           <td className="py-2 pr-4">{formatINR(total)}</td>
                           <td className="py-2 pr-4">{formatDateTime(o.createdAt)}</td>
@@ -156,7 +155,7 @@ export default function Dashboard() {
                     })}
                     {orders.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="py-6 text-center text-muted-foreground">No orders yet. Create your first one.</td>
+                        <td colSpan={7} className="py-6 text-center text-muted-foreground">No orders yet. Create your first one.</td>
                       </tr>
                     )}
                   </tbody>
