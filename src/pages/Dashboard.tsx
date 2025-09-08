@@ -45,13 +45,14 @@ export default function Dashboard() {
       Customer: order.customerName || "-",
       Items: order.items.map((item) => `${item.name} (Qty: ${item.qty})`).join(", "),
       Total: formatINR(order.items.reduce((s, it) => s + it.qty * it.price, 0)),
-      Date: formatDateTime(order.createdAt),
+  OrderDate: formatDateTime(order.createdAt),
+  DeliveryDate: order.deliveryDate ? formatDateTime(order.deliveryDate) : "",
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Orders");
-    XLSX.writeFile(wb, `orders_export_${new Date().toISOString().split("T")[0]}.xlsx`);
+  XLSX.writeFile(wb, `orders_export_${new Date().toISOString().split("T")[0]}.xlsx`);
   };
 
   const exportToPDF = () => {
@@ -60,7 +61,7 @@ export default function Dashboard() {
 
     autoTable(doc, {
       startY: 20,
-      head: [["Order Number", "Customer", "Items", "Total", "Date"]],
+  head: [["Order Number", "Customer", "Items", "Total", "Order Date", "Delivery Date"]],
       body: orders.map((order) => [
         order.id,
         order.customerName || "-",
@@ -70,7 +71,7 @@ export default function Dashboard() {
       ]),
     });
 
-    doc.save(`orders_export_${new Date().toISOString().split("T")[0]}.pdf`);
+  doc.save(`orders_export_${new Date().toISOString().split("T")[0]}.pdf`);
   };
 
   return (
@@ -136,7 +137,8 @@ export default function Dashboard() {
                       <th className="py-2 pr-4">Customer</th>
                       <th className="py-2 pr-4">Items</th>
                       <th className="py-2 pr-4">Total</th>
-                      <th className="py-2 pr-4">Date</th>
+                      <th className="py-2 pr-4">Order Date</th>
+                      <th className="py-2 pr-4">Delivery Date</th>
                       <th className="py-2 pr-0 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -156,6 +158,7 @@ export default function Dashboard() {
                           </td>
                           <td className="py-2 pr-4">{formatINR(total)}</td>
                           <td className="py-2 pr-4">{formatDateTime(o.createdAt)}</td>
+                          <td className="py-2 pr-4">{o.deliveryDate ? formatDateTime(o.deliveryDate) : ""}</td>
                           <td className="py-2 pr-0 text-right">
                             <div className="flex justify-end gap-2">
                               <Button size="sm" asChild>

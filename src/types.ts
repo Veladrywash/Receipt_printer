@@ -10,5 +10,6 @@ export type Order = {
   customerName: string;
   phone?: string;
   createdAt: string; // ISO string
+  deliveryDate?: string; // ISO string, optional for now
   items: OrderItem[];
 };

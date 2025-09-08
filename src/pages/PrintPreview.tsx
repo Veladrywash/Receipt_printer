@@ -35,7 +35,7 @@ export default function PrintPreview() {
   if (!order) {
     return (
       <main className="min-h-screen flex items-center justify-center">
-        <Seo title="Print Preview | Vela Dry Wash POS" description="80mm thermal receipt preview." canonicalPath={/print/${id ?? ""}} />
+        <Seo title="Print Preview | Vela Dry Wash POS" description="80mm thermal receipt preview." canonicalPath={`/print/${id ?? ""}`} />
         <div className="space-y-4 text-center">
           <p>No order data found.</p>
           <Button onClick={() => navigate("/order")}>Back to Order</Button>
@@ -48,7 +48,7 @@ export default function PrintPreview() {
 
   return (
     <main className="min-h-screen flex flex-col items-center py-2">
-      <Seo title={Print: ${order.id} | Vela Dry Wash POS} description="80mm thermal receipt preview." canonicalPath={/print/${order.id}} />
+      <Seo title={`Print: ${order.id} | Vela Dry Wash POS`} description="80mm thermal receipt preview." canonicalPath={`/print/${order.id}`} />
       <div className="receipt-root">
         <div className="receipt-center">
           <div className="receipt-title">VELA DRY WASH</div>
@@ -60,7 +60,10 @@ export default function PrintPreview() {
 
         <hr className="receipt-hr" />
 
-        <div className="receipt-small">Date: {new Date(order.createdAt).toLocaleString()}</div>
+        <div className="receipt-small">Order Date: {new Date(order.createdAt).toLocaleString()}</div>
+        {order.deliveryDate && (
+          <div className="receipt-small">Delivery Date: {new Date(order.deliveryDate).toLocaleDateString()}</div>
+        )}
         <div className="receipt-small">Order: {order.id}</div>
         <div className="receipt-small">Customer: {order.customerName || "-"}</div>
 

@@ -26,6 +26,7 @@ export default function OrderPage() {
   const customerInputRef = useRef<HTMLInputElement | null>(null);
 
   const createdAt = useMemo(() => new Date().toISOString(), []);
+  const [deliveryDate, setDeliveryDate] = useState<string>("");
 
   const total = items.reduce((sum, it) => sum + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
 
@@ -128,7 +129,8 @@ export default function OrderPage() {
       id: orderNumber,
       customerName,
       phone,
-      createdAt,
+  createdAt,
+  deliveryDate,
       items: items.filter((i) => i.name.trim() !== ""),
     };
     await addOrder(order);
@@ -200,8 +202,15 @@ export default function OrderPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Date</Label>
+              <Label>Order Date</Label>
               <Input value={new Date(createdAt).toLocaleDateString()} readOnly />
+              <Label>Delivery Date</Label>
+              <Input
+                type="date"
+                value={deliveryDate}
+                onChange={e => setDeliveryDate(e.target.value)}
+                required
+              />
             </div>
           </CardContent>
         </Card>

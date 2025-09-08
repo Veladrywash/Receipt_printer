@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,7 +25,8 @@ export default function OrderPage() {
   const inputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
   const customerInputRef = useRef<HTMLInputElement | null>(null);
 
-  const createdAt = useMemo(() => new Date().toISOString(), []);
+  const [createdAt, setCreatedAt] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [deliveryDate, setDeliveryDate] = useState<string>("");
 
   const total = items.reduce((sum, it) => sum + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
 
@@ -130,7 +131,8 @@ export default function OrderPage() {
       id: orderNumber,
       customerName,
       phone,
-      createdAt,
+      createdAt: new Date(createdAt).toISOString(),
+      deliveryDate,
       items: items.filter((i) => i.name.trim() !== ""),
     };
     await addOrder(order);
@@ -202,8 +204,29 @@ export default function OrderPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Date</Label>
-              <Input value={new Date(createdAt).toLocaleDateString()} readOnly />
+              <div className="font-semibold text-base mb-1">Order & Delivery Dates</div>
+              <div className="flex flex-col md:grid md:grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="order-date">Order Date</Label>
+                  <Input
+                    id="order-date"
+                    type="date"
+                    value={createdAt}
+                    onChange={e => setCreatedAt(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="delivery-date">Delivery Date</Label>
+                  <Input
+                    id="delivery-date"
+                    type="date"
+                    value={deliveryDate}
+                    onChange={e => setDeliveryDate(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
