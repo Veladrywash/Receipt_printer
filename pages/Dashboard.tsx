@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { loadOrders, removeOrder } from "@/store/orders";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { loadOrders, removeOrder } from "../store/orders";
 import { Order } from "@/types";
-import { formatDateTime, formatINR } from "@/utils/format";
+import { formatDateTime, formatINR } from "../utils/format";
 import { Link, useNavigate } from "react-router-dom";
 import { Seo } from "@/components/Seo";
-import { useIsMobile } from "@/hooks/use-mobile";
+// Update the import path below if your hook is located elsewhere
+import { useIsMobile } from "../hooks/use-mobile";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -31,6 +32,7 @@ export default function Dashboard() {
   };
 
   const deleteAllOrders = async () => {
+    if (!window.confirm("Are you sure you want to delete all orders? This action cannot be undone.")) return;
     for (const order of orders) {
       await removeOrder(order.id);
     }
@@ -58,7 +60,7 @@ export default function Dashboard() {
     doc.text("Orders Export", 14, 15);
     autoTable(doc, {
       startY: 20,
-  head: [["Order Number", "Customer", "Phone Number", "Items", "Total", "Order Date", "Delivery Date"]],
+      head: [["Order Number", "Customer", "Phone Number", "Items", "Total", "Order Date", "Delivery Date"]],
       body: orders.map((order) => [
         order.id,
         order.customerName || "-",
@@ -66,9 +68,10 @@ export default function Dashboard() {
         order.items.length,
         formatINR(order.items.reduce((s, it) => s + it.qty * it.price, 0)),
         formatDateTime(order.createdAt),
+        order.deliveryDate ? formatDateTime(order.deliveryDate) : "",
       ]),
     });
-  doc.save(`orders_export_${new Date().toISOString().split("T")[0]}.pdf`);
+    doc.save(`orders_export_${new Date().toISOString().split("T")[0]}.pdf`);
   };
 
   return (
@@ -158,7 +161,7 @@ export default function Dashboard() {
                     })}
                     {orders.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="py-6 text-center text-muted-foreground">No orders yet. Create your first one.</td>
+                        <td colSpan={8} className="py-6 text-center text-muted-foreground">No orders yet. Create your first one.</td>
                       </tr>
                     )}
                   </tbody>
