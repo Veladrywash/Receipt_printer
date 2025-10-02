@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { loadOrders, removeOrder } from "@/store/orders";
+import { loadOrders, removeOrder, removeAllOrders } from "@/store/orders";
+import { useState as useReactState } from "react";
 import { Order } from "@/types";
 import { formatDateTime, formatINR } from "@/utils/format";
 import { Link, useNavigate } from "react-router-dom";
@@ -13,8 +15,23 @@ import autoTable from "jspdf-autotable";
 
 export default function Dashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [error, setError] = useReactState<string | null>(null);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const location = useLocation();
+
+  const deleteAllOrders = async () => {
+    setError(null);
+    // Optimistically clear UI
+    setOrders([]);
+    try {
+      await removeAllOrders();
+    } catch (err) {
+      setError("Failed to delete all orders. Please try again.");
+      // Optionally reload from backend to restore UI
+      setOrders(await loadOrders());
+    }
+  };
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -22,21 +39,19 @@ export default function Dashboard() {
       setOrders(fetchedOrders);
     };
     fetchOrders();
-  }, []);
+  }, [location]);
 
   const onDelete = async (id: string) => {
-    await removeOrder(id);
-    const updatedOrders = await loadOrders();
-    setOrders(updatedOrders);
-  };
-
-  const deleteAllOrders = async () => {
-    // Note: A real implementation would have a dedicated API for this.
-    // This is a simple client-side loop.
-    for (const order of orders) {
-      await removeOrder(order.id);
+    setError(null);
+    // Make a copy of previous orders for rollback
+    const prevOrders = [...orders];
+    setOrders((prev) => prev.filter((order) => order.id !== id));
+    try {
+      await removeOrder(id);
+    } catch (err) {
+      setError("Failed to delete order. Please try again.");
+      setOrders(prevOrders);
     }
-    setOrders(await loadOrders());
   };
 
   const exportToExcel = () => {
@@ -107,8 +122,8 @@ export default function Dashboard() {
                         <div className="text-sm">Customer: {o.customerName || "-"}</div>
                         <div className="text-sm">
                           Items:{" "}
-                          {o.items.map((item, index) => (
-                            <div key={index} className="ml-2">
+                          {o.items.map((item) => (
+                            <div key={item.id} className="ml-2">
                               - {item.name} (Qty: {item.qty})
                             </div>
                           ))}
@@ -150,8 +165,8 @@ export default function Dashboard() {
                           <td className="py-2 pr-4 font-medium">{o.id}</td>
                           <td className="py-2 pr-4">{o.customerName || "-"}</td>
                           <td className="py-2 pr-4">
-                            {o.items.map((item, index) => (
-                              <div key={index}>
+                            {o.items.map((item) => (
+                              <div key={item.id}>
                                 {item.name} (Qty: {item.qty})
                               </div>
                             ))}
@@ -178,6 +193,9 @@ export default function Dashboard() {
                   </tbody>
                 </table>
               </div>
+            )}
+            {error && (
+              <div className="text-red-600 mb-2">{error}</div>
             )}
             {orders.length > 0 && (
               <div className="mt-4">
