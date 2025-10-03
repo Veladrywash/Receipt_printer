@@ -1,210 +1,385 @@
-import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { loadOrders, removeOrder, removeAllOrders } from "@/store/orders";
-import { useState as useReactState } from "react";
-import { Order } from "@/types";
-import { formatDateTime, formatINR } from "@/utils/format";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Seo } from "@/components/Seo";
+import { Order, OrderItem } from "@/types";
+import { addOrder } from "@/store/orders";
+import { formatINR } from "@/utils/format";
 import { useIsMobile } from "@/hooks/use-mobile";
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 
-export default function Dashboard() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [error, setError] = useReactState<string | null>(null);
+export default function OrderPage() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const location = useLocation();
+  const [customerName, setCustomerName] = useState("");
+  const [remark, setRemark] = useState("");
+  const [orderNumber, setOrderNumber] = useState("");
+  const [items, setItems] = useState<OrderItem[]>([
+    { id: crypto.randomUUID(), name: "", qty: 1, price: 0 },
+  ]);
+  const [activeInputId, setActiveInputId] = useState<string | null>(null);
+  const [itemSearchTerms, setItemSearchTerms] = useState<{ [key: string]: string }>({});
+  const [customerSearchTerm, setCustomerSearchTerm] = useState<string>("");
+  const inputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
+  const customerInputRef = useRef<HTMLInputElement | null>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
 
-  const deleteAllOrders = async () => {
-    setError(null);
-    // Optimistically clear UI
-    setOrders([]);
-    try {
-      await removeAllOrders();
-    } catch (err) {
-      setError("Failed to delete all orders. Please try again.");
-      // Optionally reload from backend to restore UI
-      setOrders(await loadOrders());
-    }
+  const [createdAt, setCreatedAt] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [deliveryDate, setDeliveryDate] = useState<string>("");
+
+  const resetForm = () => {
+    setCustomerName("");
+  setRemark("");
+    setOrderNumber("");
+    setItems([{ id: crypto.randomUUID(), name: "", qty: 1, price: 0 }]);
+    setItemSearchTerms({});
+    setCustomerSearchTerm("");
+    setCreatedAt(new Date().toISOString().split('T')[0]);
+    setDeliveryDate("");
+    setIsPrinting(false);
   };
 
   useEffect(() => {
-    const fetchOrders = async () => {
-      const fetchedOrders = await loadOrders();
-      setOrders(fetchedOrders);
-    };
-    fetchOrders();
-  }, [location]);
+    resetForm();
+  }, []);
 
-  const onDelete = async (id: string) => {
-    setError(null);
-    // Make a copy of previous orders for rollback
-    const prevOrders = [...orders];
-    setOrders((prev) => prev.filter((order) => order.id !== id));
-    try {
-      await removeOrder(id);
-    } catch (err) {
-      setError("Failed to delete order. Please try again.");
-      setOrders(prevOrders);
+  const total = items.reduce((sum, it) => sum + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
+
+  const itemSuggestions = [
+    "shirt",
+    "pant",
+    "t-shirt",
+    "lower",
+    "inner",
+    "vest",
+    "vesti",
+    "lungi",
+    "kerchief",
+    "socks",
+    "saree",
+    "blouse",
+    "white-pillow-cover",
+    "white-towel",
+    "white-bed-cover-double",
+    "white-bed-cover-single",
+    "colour-pillow-cover",
+    "colour-towel",
+    "colour-bed-cover-double",
+    "colour-bed-cover-single",
+    "double-bedcover",
+    "bed-sheet",
+    "colour-blanket",
+    "white-blanket",
+  ];
+
+  const customerSuggestions = [
+    "JK Residency Toll Plaza",
+    "JK Resort",
+    "JK Village Resort Ukl",
+    "URC Lodge",
+    "URC Resort",
+    "JK Paradise",
+  ];
+
+  const filteredItemSuggestions = (itemId: string) =>
+    itemSuggestions.filter((item) =>
+      item.toLowerCase().includes((itemSearchTerms[itemId] || "").toLowerCase())
+    );
+
+  const filteredCustomerSuggestions = customerSuggestions.filter((customer) =>
+    customer.toLowerCase().includes(customerSearchTerm.toLowerCase())
+  );
+
+  const addItem = () =>
+    setItems((prev) => [...prev, { id: crypto.randomUUID(), name: "", qty: 1, price: 0 }]);
+
+  const removeItem = (id: string) => {
+    setItems((prev) => prev.filter((i) => i.id !== id));
+    setItemSearchTerms((prev) => {
+      const newTerms = { ...prev };
+      delete newTerms[id];
+      return newTerms;
+    });
+  };
+
+  const updateItem = (id: string, patch: Partial<OrderItem>) =>
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+
+  const handleInputFocus = (id: string) => {
+    setActiveInputId(id);
+  };
+
+  const handleCustomerInputFocus = () => {
+    setActiveInputId("customer");
+  };
+
+  const handleInputChange = (id: string, value: string) => {
+    setItemSearchTerms((prev) => ({ ...prev, [id]: value }));
+    updateItem(id, { name: value });
+  };
+
+  const handleCustomerInputChange = (value: string) => {
+    setCustomerSearchTerm(value);
+    setCustomerName(value);
+  };
+
+  const handleSuggestionClick = (id: string, suggestion: string) => {
+    updateItem(id, { name: suggestion });
+    setItemSearchTerms((prev) => ({ ...prev, [id]: suggestion }));
+    setActiveInputId(null);
+    if (inputRefs.current[id]) {
+      inputRefs.current[id]?.blur();
     }
   };
 
-  const exportToExcel = () => {
-    const data = orders.map((order) => ({
-      "Order Number": order.id,
-      Customer: order.customerName || "-",
-      Items: order.items.map((item) => `${item.name} (Qty: ${item.qty})`).join(", "),
-      Total: formatINR(order.items.reduce((s, it) => s + it.qty * it.price, 0)),
-  OrderDate: formatDateTime(order.createdAt),
-  DeliveryDate: order.deliveryDate ? formatDateTime(order.deliveryDate) : "",
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Orders");
-  XLSX.writeFile(wb, `orders_export_${new Date().toISOString().split("T")[0]}.xlsx`);
+  const handleCustomerSuggestionClick = (suggestion: string) => {
+    setCustomerName(suggestion);
+    setCustomerSearchTerm(suggestion);
+    setActiveInputId(null);
+    if (customerInputRef.current) {
+      customerInputRef.current.blur();
+    }
   };
 
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    doc.text("Orders Export", 14, 15);
+  const onPrint = async () => {
+    if (isPrinting) return;
 
-    autoTable(doc, {
-      startY: 20,
-  head: [["Order Number", "Customer", "Items", "Total", "Order Date", "Delivery Date"]],
-      body: orders.map((order) => [
-        order.id,
-        order.customerName || "-",
-        order.items.map((item) => `${item.name} (Qty: ${item.qty})`).join(", "),
-        formatINR(order.items.reduce((s, it) => s + it.qty * it.price, 0)),
-        formatDateTime(order.createdAt),
-      ]),
-    });
+    if (!orderNumber.trim()) {
+      alert("Please enter an order number");
+      return;
+    }
 
-  doc.save(`orders_export_${new Date().toISOString().split("T")[0]}.pdf`);
+    const filteredItems = items.filter((i) => i.name.trim() !== "");
+    if (filteredItems.length === 0) {
+      alert("Please add at least one item");
+      return;
+    }
+
+    setIsPrinting(true);
+
+    try {
+      const order: Order = {
+        id: orderNumber,
+        customerName,
+        remark,
+        createdAt: new Date(createdAt).toISOString(),
+        deliveryDate,
+        items: filteredItems,
+      };
+
+      await addOrder(order);
+      navigate(`/print/${encodeURIComponent(order.id)}`, { state: { order } });
+      resetForm();
+    } catch (error) {
+      console.error("Failed to create order:", error);
+      alert("Failed to create order. Please try again.");
+      setIsPrinting(false);
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem("vdw_auth");
+    navigate("/login");
   };
 
   return (
     <main className="min-h-screen bg-background">
-      <Seo title="Dashboard | Vela Dry Wash POS" description="View all transactions and reprint receipts." canonicalPath="/dashboard" />
+      <Seo title="New Order | Vela Dry Wash POS" description="Create a new laundry order, add items, and print an 80mm thermal receipt." canonicalPath="/order" />
       <header className="container py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <h1 className="text-2xl md:text-3xl font-bold">All Orders ({orders.length})</h1>
-        <div className="flex gap-2 flex-wrap justify-end w-full md:w-auto">
-          <Button className="w-full md:w-auto" onClick={exportToExcel}>Export to Excel</Button>
-          <Button className="w-full md:w-auto" onClick={exportToPDF}>Export to PDF</Button>
-          <Button className="w-full md:w-auto" variant="secondary" onClick={() => navigate("/order")}>New Order</Button>
-          <Button className="w-full md:w-auto" variant="outline" onClick={() => navigate("/login")}>Back</Button>
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold">VELA DRY WASH</h1>
+        </div>
+        <div className="flex gap-2 flex-wrap justify-end">
+          <Button variant="secondary" onClick={() => navigate("/dashboard")}>Dashboard</Button>
+          <Button variant="outline" onClick={logout}>Logout</Button>
         </div>
       </header>
 
-      <section className="container pb-12">
-        <Card>
+      <section className="container space-y-6 pb-24 md:pb-12">
+        <Card className="bg-secondary">
           <CardHeader>
-            <CardTitle>Recent Transactions</CardTitle>
+            <CardTitle>Customer Details</CardTitle>
           </CardHeader>
-          <CardContent>
-            {isMobile ? (
-              <div className="space-y-3">
-                {orders.map((o) => {
-                  const total = o.items.reduce((s, it) => s + it.qty * it.price, 0);
-                  return (
-                    <Card key={o.id} className="border">
-                      <CardContent className="py-4 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold">{o.id}</span>
-                          <span className="text-sm text-muted-foreground">{formatDateTime(o.createdAt)}</span>
-                        </div>
-                        <div className="text-sm">Customer: {o.customerName || "-"}</div>
-                        <div className="text-sm">Remark: {o.remark || "-"}</div>
-                        <div className="text-sm">
-                          Items:{" "}
-                          {o.items.map((item) => (
-                            <div key={item.id} className="ml-2">
-                              - {item.name} (Qty: {item.qty})
-                            </div>
-                          ))}
-                        </div>
-                        <div className="text-base font-medium">Total: {formatINR(total)}</div>
-                        <div className="pt-2 grid grid-cols-2 gap-2">
-                          <Button size="sm" className="w-full" asChild>
-                            <Link to={`/print/${encodeURIComponent(o.id)}`}>Print</Link>
-                          </Button>
-                          <Button size="sm" className="w-full" variant="destructive" onClick={() => onDelete(o.id)}>Delete</Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-                {orders.length === 0 && (
-                  <div className="py-6 text-center text-muted-foreground">No orders yet. Create your first one.</div>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="customer">Customer Name</Label>
+              <div className="relative">
+                <Input
+                  id="customer"
+                  ref={customerInputRef}
+                  placeholder="Enter customer name"
+                  value={customerName}
+                  onChange={(e) => handleCustomerInputChange(e.target.value)}
+                  onFocus={handleCustomerInputFocus}
+                  onBlur={() => setTimeout(() => setActiveInputId(null), 200)}
+                />
+                {activeInputId === "customer" && filteredCustomerSuggestions.length > 0 && (
+                  <div className="absolute z-10 w-full max-h-40 overflow-y-auto bg-card border border-input rounded-md mt-1 shadow-lg">
+                    {filteredCustomerSuggestions.map((suggestion) => (
+                      <div
+                        key={suggestion}
+                        className="px-3 py-2 hover:bg-accent cursor-pointer text-sm"
+                        onMouseDown={() => handleCustomerSuggestionClick(suggestion)}
+                      >
+                        {suggestion}
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="text-left text-muted-foreground">
-                    <tr className="border-b">
-                      <th className="py-2 pr-4">Order Number</th>
-                      <th className="py-2 pr-4">Customer</th>
-                      <th className="py-2 pr-4">Remark</th>
-                      <th className="py-2 pr-4">Items</th>
-                      <th className="py-2 pr-4">Total</th>
-                      <th className="py-2 pr-4">Order Date</th>
-                      <th className="py-2 pr-4">Delivery Date</th>
-                      <th className="py-2 pr-0 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orders.map((o) => {
-                      const total = o.items.reduce((s, it) => s + it.qty * it.price, 0);
-                      return (
-                        <tr key={o.id} className="border-b last:border-0">
-                          <td className="py-2 pr-4 font-medium">{o.id}</td>
-                          <td className="py-2 pr-4">{o.customerName || "-"}</td>
-                          <td className="py-2 pr-4">{o.remark || "-"}</td>
-                          <td className="py-2 pr-4">
-                            {o.items.map((item) => (
-                              <div key={item.id}>
-                                {item.name} (Qty: {item.qty})
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="remark">Remark</Label>
+              <Input id="remark" placeholder="Enter remark" value={remark} onChange={(e) => setRemark(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="orderNumber">Order Number</Label>
+              <Input
+                id="orderNumber"
+                placeholder="Enter order number"
+                value={orderNumber}
+                onChange={(e) => setOrderNumber(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="font-semibold text-base mb-1">Order & Delivery Dates</div>
+              <div className="flex flex-col md:grid md:grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="order-date">Order Date</Label>
+                  <Input
+                    id="order-date"
+                    type="date"
+                    value={createdAt}
+                    onChange={e => setCreatedAt(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="delivery-date">Delivery Date</Label>
+                  <Input
+                    id="delivery-date"
+                    type="date"
+                    value={deliveryDate}
+                    onChange={e => setDeliveryDate(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-secondary">
+          <CardHeader className="flex-row items-center justify-between gap-3">
+            <CardTitle>Order Items</CardTitle>
+            <Button size="sm" onClick={addItem}>+ Add Item</Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="hidden md:grid grid-cols-12 text-sm font-medium text-muted-foreground">
+              <div className="col-span-6">Item</div>
+              <div className="col-span-2">Qty</div>
+              <div className="col-span-2">Price</div>
+              <div className="col-span-2 text-right">Amount</div>
+            </div>
+
+            <div className="space-y-3">
+              {items.map((it) => {
+                const amount = (Number(it.qty) || 0) * (Number(it.price) || 0);
+                return (
+                  <div key={it.id} className="rounded-md border bg-card p-3 md:p-0 md:border-0 relative">
+                    <div className="grid gap-3 md:hidden">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Item</Label>
+                        <div className="relative">
+                          <Input
+                            ref={(el) => (inputRefs.current[it.id] = el)}
+                            placeholder="Item name"
+                            value={it.name}
+                            onChange={(e) => handleInputChange(it.id, e.target.value)}
+                            onFocus={() => handleInputFocus(it.id)}
+                            onBlur={() => setTimeout(() => setActiveInputId(null), 200)}
+                          />
+                          {activeInputId === it.id && filteredItemSuggestions(it.id).length > 0 && (
+                            <div className="absolute z-10 w-full max-h-40 overflow-y-auto bg-card border border-input rounded-md mt-1 shadow-lg">
+                              {filteredItemSuggestions(it.id).map((suggestion) => (
+                                <div
+                                  key={suggestion}
+                                  className="px-3 py-2 hover:bg-accent cursor-pointer text-sm"
+                                  onMouseDown={() => handleSuggestionClick(it.id, suggestion)}
+                                >
+                                  {suggestion}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Qty</Label>
+                          <Input type="number" min={0} value={it.qty} onChange={(e) => updateItem(it.id, { qty: Number(e.target.value) })} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Price</Label>
+                          <Input type="number" min={0} value={it.price} onChange={(e) => updateItem(it.id, { price: Number(e.target.value) })} />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm">Amount</div>
+                        <div className="text-base font-semibold">{formatINR(amount)}</div>
+                      </div>
+                      <div className="flex justify-end">
+                        <Button variant="ghost" type="button" onClick={() => removeItem(it.id)}>Remove</Button>
+                      </div>
+                    </div>
+
+                    <div className="hidden md:grid grid-cols-12 gap-2 items-center">
+                      <div className="col-span-6 relative">
+                        <Input
+                          ref={(el) => (inputRefs.current[it.id] = el)}
+                          placeholder="Item name"
+                          value={it.name}
+                          onChange={(e) => handleInputChange(it.id, e.target.value)}
+                          onFocus={() => handleInputFocus(it.id)}
+                          onBlur={() => setTimeout(() => setActiveInputId(null), 200)}
+                        />
+                        {activeInputId === it.id && filteredItemSuggestions(it.id).length > 0 && (
+                          <div className="absolute z-10 w-full max-h-40 overflow-y-auto bg-card border border-input rounded-md mt-1 shadow-lg">
+                            {filteredItemSuggestions(it.id).map((suggestion) => (
+                              <div
+                                key={suggestion}
+                                className="px-3 py-2 hover:bg-accent cursor-pointer text-sm"
+                                onMouseDown={() => handleSuggestionClick(it.id, suggestion)}
+                              >
+                                {suggestion}
                               </div>
                             ))}
-                          </td>
-                          <td className="py-2 pr-4">{formatINR(total)}</td>
-                          <td className="py-2 pr-4">{formatDateTime(o.createdAt)}</td>
-                          <td className="py-2 pr-4">{o.deliveryDate ? formatDateTime(o.deliveryDate) : ""}</td>
-                          <td className="py-2 pr-0 text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button size="sm" asChild>
-                                <Link to={`/print/${encodeURIComponent(o.id)}`}>Print</Link>
-                              </Button>
-                              <Button size="sm" variant="destructive" onClick={() => onDelete(o.id)}>Delete</Button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {orders.length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="py-6 text-center text-muted-foreground">No orders yet. Create your first one.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            {error && (
-              <div className="text-red-600 mb-2">{error}</div>
-            )}
-            {orders.length > 0 && (
-              <div className="mt-4">
-                <Button size="sm" variant="destructive" onClick={deleteAllOrders}>Delete All</Button>
-              </div>
-            )}
+                          </div>
+                        )}
+                      </div>
+                      <Input className="col-span-2" type="number" value={it.qty} min={0} onChange={(e) => updateItem(it.id, { qty: Number(e.target.value) })} />
+                      <Input className="col-span-2" type="number" value={it.price} min={0} onChange={(e) => updateItem(it.id, { price: Number(e.target.value) })} />
+                      <div className="col-span-2 text-right font-medium">{formatINR(amount)}</div>
+                      <div className="col-span-12 flex justify-end">
+                        <Button variant="ghost" type="button" onClick={() => removeItem(it.id)}>Remove</Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-secondary">
+          <CardContent className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 py-6">
+            <div className="text-lg font-semibold">Total Amount:</div>
+            <div className="text-2xl font-bold">{formatINR(total)}</div>
+            <Button onClick={onPrint} className="w-full md:w-auto" disabled={isPrinting}>
+              {isPrinting ? "Processing..." : "Print Receipt"}
+            </Button>
           </CardContent>
         </Card>
       </section>
