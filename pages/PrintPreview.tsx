@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Order } from "@/types";
-import { getOrderById } from "@/store/orders";
 import { formatINR } from "@/utils/format";
 import "@/styles/print.css";
 import { Button } from "@/components/ui/button";
@@ -13,17 +12,7 @@ export default function PrintPreview() {
   const location = useLocation();
   const stateOrder = (location.state as { order?: Order } | undefined)?.order;
 
-  const [order, setOrder] = useState<Order | undefined>(stateOrder);
-
-  useEffect(() => {
-    const fetchOrder = async () => {
-      if (!stateOrder && id) {
-        const fetchedOrder = await getOrderById(id);
-        setOrder(fetchedOrder);
-      }
-    };
-    fetchOrder();
-  }, [id, stateOrder]);
+  const [order] = useState<Order | undefined>(stateOrder);
 
   useEffect(() => {
     if (order) {
@@ -60,12 +49,15 @@ export default function PrintPreview() {
 
         <hr className="receipt-hr" />
 
-  <div className="receipt-small">Order Date: {new Date(order.createdAt).toLocaleDateString()}</div>
+        <div className="receipt-small">Order Date: {new Date(order.createdAt).toLocaleString()}</div>
         {order.deliveryDate && (
           <div className="receipt-small">Delivery Date: {new Date(order.deliveryDate).toLocaleDateString()}</div>
         )}
         <div className="receipt-small">Order: {order.id}</div>
         <div className="receipt-small">Customer: {order.customerName || "-"}</div>
+        {order.remark && (
+          <div className="receipt-small">Remark: {order.remark}</div>
+        )}
 
         <hr className="receipt-hr" />
 
