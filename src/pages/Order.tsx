@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,9 +24,26 @@ export default function OrderPage() {
   const [customerSearchTerm, setCustomerSearchTerm] = useState<string>("");
   const inputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
   const customerInputRef = useRef<HTMLInputElement | null>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
 
   const [createdAt, setCreatedAt] = useState<string>(new Date().toISOString().split('T')[0]);
   const [deliveryDate, setDeliveryDate] = useState<string>("");
+
+  const resetForm = () => {
+    setCustomerName("");
+    setPhone("");
+    setOrderNumber("");
+    setItems([{ id: crypto.randomUUID(), name: "", qty: 1, price: 0 }]);
+    setItemSearchTerms({});
+    setCustomerSearchTerm("");
+    setCreatedAt(new Date().toISOString().split('T')[0]);
+    setDeliveryDate("");
+    setIsPrinting(false);
+  };
+
+  useEffect(() => {
+    resetForm();
+  }, []);
 
   const total = items.reduce((sum, it) => sum + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
 
@@ -127,16 +144,39 @@ export default function OrderPage() {
   };
 
   const onPrint = async () => {
-    const order: Order = {
-      id: orderNumber,
-      customerName,
-      phone,
-      createdAt: new Date(createdAt).toISOString(),
-      deliveryDate,
-      items: items.filter((i) => i.name.trim() !== ""),
-    };
-    await addOrder(order);
-    navigate(`/print/${encodeURIComponent(order.id)}`, { state: { order } });
+    if (isPrinting) return;
+
+    if (!orderNumber.trim()) {
+      alert("Please enter an order number");
+      return;
+    }
+
+    const filteredItems = items.filter((i) => i.name.trim() !== "");
+    if (filteredItems.length === 0) {
+      alert("Please add at least one item");
+      return;
+    }
+
+    setIsPrinting(true);
+
+    try {
+      const order: Order = {
+        id: orderNumber,
+        customerName,
+        phone,
+        createdAt: new Date(createdAt).toISOString(),
+        deliveryDate,
+        items: filteredItems,
+      };
+
+      await addOrder(order);
+      navigate(`/print/${encodeURIComponent(order.id)}`, { state: { order } });
+      resetForm();
+    } catch (error) {
+      console.error("Failed to create order:", error);
+      alert("Failed to create order. Please try again.");
+      setIsPrinting(false);
+    }
   };
 
   const logout = () => {
@@ -337,7 +377,9 @@ export default function OrderPage() {
           <CardContent className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 py-6">
             <div className="text-lg font-semibold">Total Amount:</div>
             <div className="text-2xl font-bold">{formatINR(total)}</div>
-            <Button onClick={onPrint} className="w-full md:w-auto">Print Receipt</Button>
+            <Button onClick={onPrint} className="w-full md:w-auto" disabled={isPrinting}>
+              {isPrinting ? "Processing..." : "Print Receipt"}
+            </Button>
           </CardContent>
         </Card>
       </section>
