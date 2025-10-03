@@ -14,7 +14,7 @@ export default function OrderPage() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [customerName, setCustomerName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [remark, setRemark] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
   const [items, setItems] = useState<OrderItem[]>([
     { id: crypto.randomUUID(), name: "", qty: 1, price: 0 },
@@ -31,7 +31,7 @@ export default function OrderPage() {
 
   const resetForm = () => {
     setCustomerName("");
-    setPhone("");
+    setRemark("");
     setOrderNumber("");
     setItems([{ id: crypto.randomUUID(), name: "", qty: 1, price: 0 }]);
     setItemSearchTerms({});
@@ -163,7 +163,7 @@ export default function OrderPage() {
       const order: Order = {
         id: orderNumber,
         customerName,
-        phone,
+        remark,
         createdAt: new Date(createdAt).toISOString(),
         deliveryDate,
         items: filteredItems,
@@ -231,8 +231,8 @@ export default function OrderPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input id="phone" placeholder="Enter phone number" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              <Label htmlFor="remark">Remark</Label>
+              <Input id="remark" placeholder="Enter remark or notes" value={remark} onChange={(e) => setRemark(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="orderNumber">Order Number</Label>

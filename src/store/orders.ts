@@ -22,7 +22,7 @@ export async function loadOrders(): Promise<Order[]> {
     return (data || []).map(order => ({
       id: order.id,
       customerName: order.customer_name,
-      phone: order.phone || '',
+      remark: order.remark || '',
       createdAt: order.created_at,
       deliveryDate: order.delivery_date || '',
       items: order.items || []
@@ -42,7 +42,7 @@ export async function addOrder(order: Order) {
       .insert({
         id: order.id,
         customer_name: order.customerName,
-        phone: order.phone || null,
+        remark: order.remark || null,
         created_at: order.createdAt,
         delivery_date: order.deliveryDate || null,
         items: order.items,

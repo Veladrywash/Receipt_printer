@@ -55,6 +55,9 @@ export default function PrintPreview() {
         )}
         <div className="receipt-small">Order: {order.id}</div>
         <div className="receipt-small">Customer: {order.customerName || "-"}</div>
+        {order.remark && (
+          <div className="receipt-small">Remark: {order.remark}</div>
+        )}
 
         <hr className="receipt-hr" />
 

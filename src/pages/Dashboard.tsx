@@ -58,6 +58,7 @@ export default function Dashboard() {
     const data = orders.map((order) => ({
       "Order Number": order.id,
       Customer: order.customerName || "-",
+      Remark: order.remark || "-",
       Items: order.items.map((item) => `${item.name} (Qty: ${item.qty})`).join(", "),
       Total: formatINR(order.items.reduce((s, it) => s + it.qty * it.price, 0)),
   OrderDate: formatDateTime(order.createdAt),
@@ -76,13 +77,15 @@ export default function Dashboard() {
 
     autoTable(doc, {
       startY: 20,
-  head: [["Order Number", "Customer", "Items", "Total", "Order Date", "Delivery Date"]],
+  head: [["Order Number", "Customer", "Remark", "Items", "Total", "Order Date", "Delivery Date"]],
       body: orders.map((order) => [
         order.id,
         order.customerName || "-",
+        order.remark || "-",
         order.items.map((item) => `${item.name} (Qty: ${item.qty})`).join(", "),
         formatINR(order.items.reduce((s, it) => s + it.qty * it.price, 0)),
         formatDateTime(order.createdAt),
+        order.deliveryDate ? formatDateTime(order.deliveryDate) : "-",
       ]),
     });
 
@@ -120,6 +123,7 @@ export default function Dashboard() {
                           <span className="text-sm text-muted-foreground">{formatDateTime(o.createdAt)}</span>
                         </div>
                         <div className="text-sm">Customer: {o.customerName || "-"}</div>
+                        {o.remark && <div className="text-sm">Remark: {o.remark}</div>}
                         <div className="text-sm">
                           Items:{" "}
                           {o.items.map((item) => (
@@ -150,6 +154,7 @@ export default function Dashboard() {
                     <tr className="border-b">
                       <th className="py-2 pr-4">Order Number</th>
                       <th className="py-2 pr-4">Customer</th>
+                      <th className="py-2 pr-4">Remark</th>
                       <th className="py-2 pr-4">Items</th>
                       <th className="py-2 pr-4">Total</th>
                       <th className="py-2 pr-4">Order Date</th>
@@ -164,6 +169,7 @@ export default function Dashboard() {
                         <tr key={o.id} className="border-b last:border-0">
                           <td className="py-2 pr-4 font-medium">{o.id}</td>
                           <td className="py-2 pr-4">{o.customerName || "-"}</td>
+                          <td className="py-2 pr-4">{o.remark || "-"}</td>
                           <td className="py-2 pr-4">
                             {o.items.map((item) => (
                               <div key={item.id}>
@@ -187,7 +193,7 @@ export default function Dashboard() {
                     })}
                     {orders.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="py-6 text-center text-muted-foreground">No orders yet. Create your first one.</td>
+                        <td colSpan={8} className="py-6 text-center text-muted-foreground">No orders yet. Create your first one.</td>
                       </tr>
                     )}
                   </tbody>

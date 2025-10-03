@@ -8,7 +8,7 @@ export type OrderItem = {
 export type Order = {
   id: string; // e.g., VDW-2025-001
   customerName: string;
-  phone?: string;
+  remark?: string;
   createdAt: string; // ISO string
   deliveryDate?: string; // ISO string, optional for now
   items: OrderItem[];
