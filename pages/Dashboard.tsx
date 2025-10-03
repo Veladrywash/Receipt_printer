@@ -1,21 +1,37 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { Button } from "../components/ui/button";
-import { loadOrders, removeOrder } from "../store/orders";
+import { useLocation } from "react-router-dom";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { loadOrders, removeOrder, removeAllOrders } from "@/store/orders";
+import { useState as useReactState } from "react";
 import { Order } from "@/types";
-import { formatDateTime, formatINR } from "../utils/format";
+import { formatDateTime, formatINR } from "@/utils/format";
 import { Link, useNavigate } from "react-router-dom";
 import { Seo } from "@/components/Seo";
-// Update the import path below if your hook is located elsewhere
-import { useIsMobile } from "../hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 export default function Dashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [error, setError] = useReactState<string | null>(null);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const location = useLocation();
+
+  const deleteAllOrders = async () => {
+    setError(null);
+    // Optimistically clear UI
+    setOrders([]);
+    try {
+      await removeAllOrders();
+    } catch (err) {
+      setError("Failed to delete all orders. Please try again.");
+      // Optionally reload from backend to restore UI
+      setOrders(await loadOrders());
+    }
+  };
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -23,32 +39,31 @@ export default function Dashboard() {
       setOrders(fetchedOrders);
     };
     fetchOrders();
-  }, []);
+  }, [location]);
 
   const onDelete = async (id: string) => {
-    await removeOrder(id);
-    const updatedOrders = await loadOrders();
-    setOrders(updatedOrders);
-  };
-
-  const deleteAllOrders = async () => {
-    if (!window.confirm("Are you sure you want to delete all orders? This action cannot be undone.")) return;
-    for (const order of orders) {
-      await removeOrder(order.id);
+    setError(null);
+    // Make a copy of previous orders for rollback
+    const prevOrders = [...orders];
+    setOrders((prev) => prev.filter((order) => order.id !== id));
+    try {
+      await removeOrder(id);
+    } catch (err) {
+      setError("Failed to delete order. Please try again.");
+      setOrders(prevOrders);
     }
-    setOrders(await loadOrders());
   };
 
   const exportToExcel = () => {
     const data = orders.map((order) => ({
       "Order Number": order.id,
       Customer: order.customerName || "-",
-      "Phone Number": order.phoneNumber || "-",
-      Items: order.items.length,
+      Items: order.items.map((item) => `${item.name} (Qty: ${item.qty})`).join(", "),
       Total: formatINR(order.items.reduce((s, it) => s + it.qty * it.price, 0)),
   OrderDate: formatDateTime(order.createdAt),
   DeliveryDate: order.deliveryDate ? formatDateTime(order.deliveryDate) : "",
     }));
+
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Orders");
@@ -58,20 +73,20 @@ export default function Dashboard() {
   const exportToPDF = () => {
     const doc = new jsPDF();
     doc.text("Orders Export", 14, 15);
+
     autoTable(doc, {
       startY: 20,
-      head: [["Order Number", "Customer", "Phone Number", "Items", "Total", "Order Date", "Delivery Date"]],
+  head: [["Order Number", "Customer", "Items", "Total", "Order Date", "Delivery Date"]],
       body: orders.map((order) => [
         order.id,
         order.customerName || "-",
-        order.phoneNumber || "-",
-        order.items.length,
+        order.items.map((item) => `${item.name} (Qty: ${item.qty})`).join(", "),
         formatINR(order.items.reduce((s, it) => s + it.qty * it.price, 0)),
         formatDateTime(order.createdAt),
-        order.deliveryDate ? formatDateTime(order.deliveryDate) : "",
       ]),
     });
-    doc.save(`orders_export_${new Date().toISOString().split("T")[0]}.pdf`);
+
+  doc.save(`orders_export_${new Date().toISOString().split("T")[0]}.pdf`);
   };
 
   return (
@@ -86,6 +101,7 @@ export default function Dashboard() {
           <Button className="w-full md:w-auto" variant="outline" onClick={() => navigate("/login")}>Back</Button>
         </div>
       </header>
+
       <section className="container pb-12">
         <Card>
           <CardHeader>
@@ -104,8 +120,15 @@ export default function Dashboard() {
                           <span className="text-sm text-muted-foreground">{formatDateTime(o.createdAt)}</span>
                         </div>
                         <div className="text-sm">Customer: {o.customerName || "-"}</div>
-                        <div className="text-sm">Phone: {o.phoneNumber || "-"}</div>
-                        <div className="text-sm">Items: {o.items.length}</div>
+                        <div className="text-sm">Remark: {o.remark || "-"}</div>
+                        <div className="text-sm">
+                          Items:{" "}
+                          {o.items.map((item) => (
+                            <div key={item.id} className="ml-2">
+                              - {item.name} (Qty: {item.qty})
+                            </div>
+                          ))}
+                        </div>
                         <div className="text-base font-medium">Total: {formatINR(total)}</div>
                         <div className="pt-2 grid grid-cols-2 gap-2">
                           <Button size="sm" className="w-full" asChild>
@@ -128,7 +151,7 @@ export default function Dashboard() {
                     <tr className="border-b">
                       <th className="py-2 pr-4">Order Number</th>
                       <th className="py-2 pr-4">Customer</th>
-                      <th className="py-2 pr-4">Phone Number</th>
+                      <th className="py-2 pr-4">Remark</th>
                       <th className="py-2 pr-4">Items</th>
                       <th className="py-2 pr-4">Total</th>
                       <th className="py-2 pr-4">Order Date</th>
@@ -143,8 +166,14 @@ export default function Dashboard() {
                         <tr key={o.id} className="border-b last:border-0">
                           <td className="py-2 pr-4 font-medium">{o.id}</td>
                           <td className="py-2 pr-4">{o.customerName || "-"}</td>
-                          <td className="py-2 pr-4">{o.phoneNumber || "-"}</td>
-                          <td className="py-2 pr-4">{o.items.length}</td>
+                          <td className="py-2 pr-4">{o.remark || "-"}</td>
+                          <td className="py-2 pr-4">
+                            {o.items.map((item) => (
+                              <div key={item.id}>
+                                {item.name} (Qty: {item.qty})
+                              </div>
+                            ))}
+                          </td>
                           <td className="py-2 pr-4">{formatINR(total)}</td>
                           <td className="py-2 pr-4">{formatDateTime(o.createdAt)}</td>
                           <td className="py-2 pr-4">{o.deliveryDate ? formatDateTime(o.deliveryDate) : ""}</td>
@@ -161,12 +190,15 @@ export default function Dashboard() {
                     })}
                     {orders.length === 0 && (
                       <tr>
-                        <td colSpan={8} className="py-6 text-center text-muted-foreground">No orders yet. Create your first one.</td>
+                        <td colSpan={6} className="py-6 text-center text-muted-foreground">No orders yet. Create your first one.</td>
                       </tr>
                     )}
                   </tbody>
                 </table>
               </div>
+            )}
+            {error && (
+              <div className="text-red-600 mb-2">{error}</div>
             )}
             {orders.length > 0 && (
               <div className="mt-4">
