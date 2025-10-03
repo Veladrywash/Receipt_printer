@@ -135,7 +135,7 @@ export default function Dashboard() {
                         <div className="text-base font-medium">Total: {formatINR(total)}</div>
                         <div className="pt-2 grid grid-cols-2 gap-2">
                           <Button size="sm" className="w-full" asChild>
-                            <Link to={`/print/${encodeURIComponent(o.id)}`}>Print</Link>
+                            <Link to={`/print/${encodeURIComponent(o.id)}`} state={{ order: o }}>Print</Link>
                           </Button>
                           <Button size="sm" className="w-full" variant="destructive" onClick={() => onDelete(o.id)}>Delete</Button>
                         </div>
@@ -183,7 +183,7 @@ export default function Dashboard() {
                           <td className="py-2 pr-0 text-right">
                             <div className="flex justify-end gap-2">
                               <Button size="sm" asChild>
-                                <Link to={`/print/${encodeURIComponent(o.id)}`}>Print</Link>
+                                <Link to={`/print/${encodeURIComponent(o.id)}`} state={{ order: o }}>Print</Link>
                               </Button>
                               <Button size="sm" variant="destructive" onClick={() => onDelete(o.id)}>Delete</Button>
                             </div>
