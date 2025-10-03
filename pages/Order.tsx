@@ -11,10 +11,11 @@ import { formatINR } from "@/utils/format";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function OrderPage() {
+  const [errorMsg, setErrorMsg] = useState<string>("");
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [customerName, setCustomerName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [remark, setRemark] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
   const [items, setItems] = useState<OrderItem[]>([
     { id: crypto.randomUUID(), name: "", qty: 1, price: 0 },
@@ -125,16 +126,30 @@ export default function OrderPage() {
   };
 
   const onPrint = async () => {
+    setErrorMsg("");
+    if (!orderNumber.trim()) {
+      setErrorMsg("Order number is required.");
+      return;
+    }
+    const filteredItems = items.filter((i) => i.name.trim() !== "");
+    if (filteredItems.length === 0) {
+      setErrorMsg("Please add at least one item.");
+      return;
+    }
     const order: Order = {
       id: orderNumber,
       customerName,
-      phone,
-  createdAt,
-  deliveryDate,
-      items: items.filter((i) => i.name.trim() !== ""),
+      remark,
+      createdAt,
+      deliveryDate,
+      items: filteredItems,
     };
-    await addOrder(order);
-    navigate(`/print/${encodeURIComponent(order.id)}`, { state: { order } });
+    try {
+      await addOrder(order);
+      navigate(`/print/${encodeURIComponent(order.id)}`, { state: { order } });
+    } catch (err) {
+      setErrorMsg("Failed to create order. Please try again.");
+    }
   };
 
   const logout = () => {
@@ -156,6 +171,9 @@ export default function OrderPage() {
       </header>
 
       <section className="container space-y-6 pb-24 md:pb-12">
+        {errorMsg && (
+          <div className="mb-4 text-red-600 font-semibold">{errorMsg}</div>
+        )}
         <Card className="bg-secondary">
           <CardHeader>
             <CardTitle>Customer Details</CardTitle>
@@ -169,7 +187,7 @@ export default function OrderPage() {
                   ref={customerInputRef}
                   placeholder="Enter customer name"
                   value={customerName}
-                  onChange={(e) => handleCustomerInputChange(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleCustomerInputChange(e.target.value)}
                   onFocus={handleCustomerInputFocus}
                   onBlur={() => setTimeout(() => setActiveInputId(null), 200)}
                 />
@@ -189,8 +207,8 @@ export default function OrderPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input id="phone" placeholder="Enter phone number" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              <Label htmlFor="remark">Remark</Label>
+              <Input id="remark" placeholder="Enter remark" value={remark} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRemark(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="orderNumber">Order Number</Label>
@@ -198,7 +216,7 @@ export default function OrderPage() {
                 id="orderNumber"
                 placeholder="Enter order number"
                 value={orderNumber}
-                onChange={(e) => setOrderNumber(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOrderNumber(e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -208,7 +226,7 @@ export default function OrderPage() {
               <Input
                 type="date"
                 value={deliveryDate}
-                onChange={e => setDeliveryDate(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDeliveryDate(e.target.value)}
                 required
               />
             </div>
@@ -238,10 +256,10 @@ export default function OrderPage() {
                         <Label className="text-xs">Item</Label>
                         <div className="relative">
                           <Input
-                            ref={(el) => (inputRefs.current[it.id] = el)}
+                            ref={(el: HTMLInputElement | null) => (inputRefs.current[it.id] = el)}
                             placeholder="Item name"
                             value={it.name}
-                            onChange={(e) => handleInputChange(it.id, e.target.value)}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange(it.id, e.target.value)}
                             onFocus={() => handleInputFocus(it.id)}
                             onBlur={() => setTimeout(() => setActiveInputId(null), 200)}
                           />
@@ -263,11 +281,11 @@ export default function OrderPage() {
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <Label className="text-xs">Qty</Label>
-                          <Input type="number" min={0} value={it.qty} onChange={(e) => updateItem(it.id, { qty: Number(e.target.value) })} />
+                          <Input type="number" min={0} value={it.qty} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateItem(it.id, { qty: Number(e.target.value) })} />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Price</Label>
-                          <Input type="number" min={0} value={it.price} onChange={(e) => updateItem(it.id, { price: Number(e.target.value) })} />
+                          <Input type="number" min={0} value={it.price} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateItem(it.id, { price: Number(e.target.value) })} />
                         </div>
                       </div>
                       <div className="flex items-center justify-between">
@@ -282,10 +300,10 @@ export default function OrderPage() {
                     <div className="hidden md:grid grid-cols-12 gap-2 items-center">
                       <div className="col-span-6 relative">
                         <Input
-                          ref={(el) => (inputRefs.current[it.id] = el)}
+                          ref={(el: HTMLInputElement | null) => (inputRefs.current[it.id] = el)}
                           placeholder="Item name"
                           value={it.name}
-                          onChange={(e) => handleInputChange(it.id, e.target.value)}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange(it.id, e.target.value)}
                           onFocus={() => handleInputFocus(it.id)}
                           onBlur={() => setTimeout(() => setActiveInputId(null), 200)}
                         />
@@ -303,8 +321,8 @@ export default function OrderPage() {
                           </div>
                         )}
                       </div>
-                      <Input className="col-span-2" type="number" value={it.qty} min={0} onChange={(e) => updateItem(it.id, { qty: Number(e.target.value) })} />
-                      <Input className="col-span-2" type="number" value={it.price} min={0} onChange={(e) => updateItem(it.id, { price: Number(e.target.value) })} />
+                      <Input className="col-span-2" type="number" value={it.qty} min={0} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateItem(it.id, { qty: Number(e.target.value) })} />
+                      <Input className="col-span-2" type="number" value={it.price} min={0} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateItem(it.id, { price: Number(e.target.value) })} />
                       <div className="col-span-2 text-right font-medium">{formatINR(amount)}</div>
                       <div className="col-span-12 flex justify-end">
                         <Button variant="ghost" type="button" onClick={() => removeItem(it.id)}>Remove</Button>
