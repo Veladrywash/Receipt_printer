@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +11,6 @@ import { formatINR } from "@/utils/format";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function OrderPage() {
-  const [errorMsg, setErrorMsg] = useState<string>("");
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [customerName, setCustomerName] = useState("");
@@ -25,9 +24,26 @@ export default function OrderPage() {
   const [customerSearchTerm, setCustomerSearchTerm] = useState<string>("");
   const inputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
   const customerInputRef = useRef<HTMLInputElement | null>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
 
-  const createdAt = useMemo(() => new Date().toISOString(), []);
+  const [createdAt, setCreatedAt] = useState<string>(new Date().toISOString().split('T')[0]);
   const [deliveryDate, setDeliveryDate] = useState<string>("");
+
+  const resetForm = () => {
+    setCustomerName("");
+  setRemark("");
+    setOrderNumber("");
+    setItems([{ id: crypto.randomUUID(), name: "", qty: 1, price: 0 }]);
+    setItemSearchTerms({});
+    setCustomerSearchTerm("");
+    setCreatedAt(new Date().toISOString().split('T')[0]);
+    setDeliveryDate("");
+    setIsPrinting(false);
+  };
+
+  useEffect(() => {
+    resetForm();
+  }, []);
 
   const total = items.reduce((sum, it) => sum + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
 
@@ -47,9 +63,11 @@ export default function OrderPage() {
     "white-pillow-cover",
     "white-towel",
     "white-bed-cover-double",
+    "white-bed-cover-single",
     "colour-pillow-cover",
     "colour-towel",
-    "colour-bedcover-double",
+    "colour-bed-cover-double",
+    "colour-bed-cover-single",
     "double-bedcover",
     "bed-sheet",
     "colour-blanket",
@@ -57,12 +75,12 @@ export default function OrderPage() {
   ];
 
   const customerSuggestions = [
-    "jk residency toll plaza",
-    "jk resort",
-    "jk village resort ukl",
-    "url lodge",
-    "url resort",
-    "jk paradise",
+    "JK Residency Toll Plaza",
+    "JK Resort",
+    "JK Village Resort Ukl",
+    "URC Lodge",
+    "URC Resort",
+    "JK Paradise",
   ];
 
   const filteredItemSuggestions = (itemId: string) =>
@@ -126,29 +144,38 @@ export default function OrderPage() {
   };
 
   const onPrint = async () => {
-    setErrorMsg("");
+    if (isPrinting) return;
+
     if (!orderNumber.trim()) {
-      setErrorMsg("Order number is required.");
+      alert("Please enter an order number");
       return;
     }
+
     const filteredItems = items.filter((i) => i.name.trim() !== "");
     if (filteredItems.length === 0) {
-      setErrorMsg("Please add at least one item.");
+      alert("Please add at least one item");
       return;
     }
-    const order: Order = {
-      id: orderNumber,
-      customerName,
-      remark,
-      createdAt,
-      deliveryDate,
-      items: filteredItems,
-    };
+
+    setIsPrinting(true);
+
     try {
+      const order: Order = {
+        id: orderNumber,
+        customerName,
+        remark,
+        createdAt: new Date(createdAt).toISOString(),
+        deliveryDate,
+        items: filteredItems,
+      };
+
       await addOrder(order);
       navigate(`/print/${encodeURIComponent(order.id)}`, { state: { order } });
-    } catch (err) {
-      setErrorMsg("Failed to create order. Please try again.");
+      resetForm();
+    } catch (error) {
+      console.error("Failed to create order:", error);
+      alert("Failed to create order. Please try again.");
+      setIsPrinting(false);
     }
   };
 
@@ -171,9 +198,6 @@ export default function OrderPage() {
       </header>
 
       <section className="container space-y-6 pb-24 md:pb-12">
-        {errorMsg && (
-          <div className="mb-4 text-red-600 font-semibold">{errorMsg}</div>
-        )}
         <Card className="bg-secondary">
           <CardHeader>
             <CardTitle>Customer Details</CardTitle>
@@ -187,7 +211,7 @@ export default function OrderPage() {
                   ref={customerInputRef}
                   placeholder="Enter customer name"
                   value={customerName}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleCustomerInputChange(e.target.value)}
+                  onChange={(e) => handleCustomerInputChange(e.target.value)}
                   onFocus={handleCustomerInputFocus}
                   onBlur={() => setTimeout(() => setActiveInputId(null), 200)}
                 />
@@ -208,7 +232,7 @@ export default function OrderPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="remark">Remark</Label>
-              <Input id="remark" placeholder="Enter remark" value={remark} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRemark(e.target.value)} />
+              <Input id="remark" placeholder="Enter remark" value={remark} onChange={(e) => setRemark(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="orderNumber">Order Number</Label>
@@ -216,19 +240,33 @@ export default function OrderPage() {
                 id="orderNumber"
                 placeholder="Enter order number"
                 value={orderNumber}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOrderNumber(e.target.value)}
+                onChange={(e) => setOrderNumber(e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label>Order Date</Label>
-              <Input value={new Date(createdAt).toLocaleDateString()} readOnly />
-              <Label>Delivery Date</Label>
-              <Input
-                type="date"
-                value={deliveryDate}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDeliveryDate(e.target.value)}
-                required
-              />
+              <div className="font-semibold text-base mb-1">Order & Delivery Dates</div>
+              <div className="flex flex-col md:grid md:grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="order-date">Order Date</Label>
+                  <Input
+                    id="order-date"
+                    type="date"
+                    value={createdAt}
+                    onChange={e => setCreatedAt(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="delivery-date">Delivery Date</Label>
+                  <Input
+                    id="delivery-date"
+                    type="date"
+                    value={deliveryDate}
+                    onChange={e => setDeliveryDate(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -256,10 +294,10 @@ export default function OrderPage() {
                         <Label className="text-xs">Item</Label>
                         <div className="relative">
                           <Input
-                            ref={(el: HTMLInputElement | null) => (inputRefs.current[it.id] = el)}
+                            ref={(el) => (inputRefs.current[it.id] = el)}
                             placeholder="Item name"
                             value={it.name}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange(it.id, e.target.value)}
+                            onChange={(e) => handleInputChange(it.id, e.target.value)}
                             onFocus={() => handleInputFocus(it.id)}
                             onBlur={() => setTimeout(() => setActiveInputId(null), 200)}
                           />
@@ -281,11 +319,11 @@ export default function OrderPage() {
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <Label className="text-xs">Qty</Label>
-                          <Input type="number" min={0} value={it.qty} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateItem(it.id, { qty: Number(e.target.value) })} />
+                          <Input type="number" min={0} value={it.qty} onChange={(e) => updateItem(it.id, { qty: Number(e.target.value) })} />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Price</Label>
-                          <Input type="number" min={0} value={it.price} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateItem(it.id, { price: Number(e.target.value) })} />
+                          <Input type="number" min={0} value={it.price} onChange={(e) => updateItem(it.id, { price: Number(e.target.value) })} />
                         </div>
                       </div>
                       <div className="flex items-center justify-between">
@@ -300,10 +338,10 @@ export default function OrderPage() {
                     <div className="hidden md:grid grid-cols-12 gap-2 items-center">
                       <div className="col-span-6 relative">
                         <Input
-                          ref={(el: HTMLInputElement | null) => (inputRefs.current[it.id] = el)}
+                          ref={(el) => (inputRefs.current[it.id] = el)}
                           placeholder="Item name"
                           value={it.name}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange(it.id, e.target.value)}
+                          onChange={(e) => handleInputChange(it.id, e.target.value)}
                           onFocus={() => handleInputFocus(it.id)}
                           onBlur={() => setTimeout(() => setActiveInputId(null), 200)}
                         />
@@ -321,8 +359,8 @@ export default function OrderPage() {
                           </div>
                         )}
                       </div>
-                      <Input className="col-span-2" type="number" value={it.qty} min={0} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateItem(it.id, { qty: Number(e.target.value) })} />
-                      <Input className="col-span-2" type="number" value={it.price} min={0} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateItem(it.id, { price: Number(e.target.value) })} />
+                      <Input className="col-span-2" type="number" value={it.qty} min={0} onChange={(e) => updateItem(it.id, { qty: Number(e.target.value) })} />
+                      <Input className="col-span-2" type="number" value={it.price} min={0} onChange={(e) => updateItem(it.id, { price: Number(e.target.value) })} />
                       <div className="col-span-2 text-right font-medium">{formatINR(amount)}</div>
                       <div className="col-span-12 flex justify-end">
                         <Button variant="ghost" type="button" onClick={() => removeItem(it.id)}>Remove</Button>
@@ -339,7 +377,9 @@ export default function OrderPage() {
           <CardContent className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 py-6">
             <div className="text-lg font-semibold">Total Amount:</div>
             <div className="text-2xl font-bold">{formatINR(total)}</div>
-            <Button onClick={onPrint} className="w-full md:w-auto">Print Receipt</Button>
+            <Button onClick={onPrint} className="w-full md:w-auto" disabled={isPrinting}>
+              {isPrinting ? "Processing..." : "Print Receipt"}
+            </Button>
           </CardContent>
         </Card>
       </section>
