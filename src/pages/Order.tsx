@@ -28,6 +28,7 @@ export default function OrderPage() {
 
   const [createdAt, setCreatedAt] = useState<string>(new Date().toISOString().split('T')[0]);
   const [deliveryDate, setDeliveryDate] = useState<string>("");
+  const [roundOff, setRoundOff] = useState<number>(0);
 
   const resetForm = () => {
     setCustomerName("");
@@ -38,6 +39,7 @@ export default function OrderPage() {
     setCustomerSearchTerm("");
     setCreatedAt(new Date().toISOString().split('T')[0]);
     setDeliveryDate("");
+    setRoundOff(0);
     setIsPrinting(false);
   };
 
@@ -45,7 +47,8 @@ export default function OrderPage() {
     resetForm();
   }, []);
 
-  const total = items.reduce((sum, it) => sum + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
+  const subtotal = items.reduce((sum, it) => sum + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
+  const total = subtotal + (Number(roundOff) || 0);
 
   const itemSuggestions = [
     "shirt",
@@ -167,6 +170,7 @@ export default function OrderPage() {
         createdAt: new Date(createdAt).toISOString(),
         deliveryDate,
         items: filteredItems,
+        roundOff: Number(roundOff) || 0,
       };
 
       await addOrder(order);
@@ -374,10 +378,42 @@ export default function OrderPage() {
         </Card>
 
         <Card className="bg-secondary">
-          <CardContent className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 py-6">
-            <div className="text-lg font-semibold">Total Amount:</div>
-            <div className="text-2xl font-bold">{formatINR(total)}</div>
-            <Button onClick={onPrint} className="w-full md:w-auto" disabled={isPrinting}>
+          <CardContent className="space-y-4 py-6">
+            <div className="flex justify-between items-center">
+              <div className="text-lg font-semibold">Subtotal:</div>
+              <div className="text-xl font-bold">{formatINR(subtotal)}</div>
+            </div>
+            <div className="flex justify-between items-center gap-4">
+              <div className="text-lg font-semibold">Round Off:</div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRoundOff(prev => prev - 1)}
+                >
+                  -
+                </Button>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={roundOff}
+                  onChange={(e) => setRoundOff(Number(e.target.value))}
+                  className="w-32 text-center"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRoundOff(prev => prev + 1)}
+                >
+                  +
+                </Button>
+              </div>
+            </div>
+            <div className="border-t pt-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div className="text-lg font-semibold">Total Amount:</div>
+              <div className="text-2xl font-bold">{formatINR(total)}</div>
+            </div>
+            <Button onClick={onPrint} className="w-full" disabled={isPrinting}>
               {isPrinting ? "Processing..." : "Print Receipt"}
             </Button>
           </CardContent>

@@ -55,15 +55,22 @@ export default function Dashboard() {
   };
 
   const exportToExcel = () => {
-    const data = orders.map((order) => ({
-      "Order Number": order.id,
-      Customer: order.customerName || "-",
-      Remark: order.remark || "-",
-      Items: order.items.map((item) => `${item.name} (Qty: ${item.qty})`).join(", "),
-      Total: formatINR(order.items.reduce((s, it) => s + it.qty * it.price, 0)),
-  OrderDate: formatDateTime(order.createdAt),
-  DeliveryDate: order.deliveryDate ? formatDateTime(order.deliveryDate) : "",
-    }));
+    const data = orders.map((order) => {
+      const subtotal = order.items.reduce((s, it) => s + it.qty * it.price, 0);
+      const roundOff = order.roundOff || 0;
+      const total = subtotal + roundOff;
+      return {
+        "Order Number": order.id,
+        Customer: order.customerName || "-",
+        Remark: order.remark || "-",
+        Items: order.items.map((item) => `${item.name} (Qty: ${item.qty})`).join(", "),
+        Subtotal: formatINR(subtotal),
+        "Round Off": formatINR(roundOff),
+        Total: formatINR(total),
+        OrderDate: formatDateTime(order.createdAt),
+        DeliveryDate: order.deliveryDate ? formatDateTime(order.deliveryDate) : "",
+      };
+    });
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -77,16 +84,23 @@ export default function Dashboard() {
 
     autoTable(doc, {
       startY: 20,
-  head: [["Order Number", "Customer", "Remark", "Items", "Total", "Order Date", "Delivery Date"]],
-      body: orders.map((order) => [
-        order.id,
-        order.customerName || "-",
-        order.remark || "-",
-        order.items.map((item) => `${item.name} (Qty: ${item.qty})`).join(", "),
-        formatINR(order.items.reduce((s, it) => s + it.qty * it.price, 0)),
-        formatDateTime(order.createdAt),
-        order.deliveryDate ? formatDateTime(order.deliveryDate) : "-",
-      ]),
+      head: [["Order Number", "Customer", "Remark", "Items", "Subtotal", "Round Off", "Total", "Order Date", "Delivery Date"]],
+      body: orders.map((order) => {
+        const subtotal = order.items.reduce((s, it) => s + it.qty * it.price, 0);
+        const roundOff = order.roundOff || 0;
+        const total = subtotal + roundOff;
+        return [
+          order.id,
+          order.customerName || "-",
+          order.remark || "-",
+          order.items.map((item) => `${item.name} (Qty: ${item.qty})`).join(", "),
+          formatINR(subtotal),
+          formatINR(roundOff),
+          formatINR(total),
+          formatDateTime(order.createdAt),
+          order.deliveryDate ? formatDateTime(order.deliveryDate) : "-",
+        ];
+      }),
     });
 
   doc.save(`orders_export_${new Date().toISOString().split("T")[0]}.pdf`);
@@ -114,7 +128,9 @@ export default function Dashboard() {
             {isMobile ? (
               <div className="space-y-3">
                 {orders.map((o) => {
-                  const total = o.items.reduce((s, it) => s + it.qty * it.price, 0);
+                  const subtotal = o.items.reduce((s, it) => s + it.qty * it.price, 0);
+                  const roundOff = o.roundOff || 0;
+                  const total = subtotal + roundOff;
                   return (
                     <Card key={o.id} className="border">
                       <CardContent className="py-4 space-y-1">
@@ -132,6 +148,8 @@ export default function Dashboard() {
                             </div>
                           ))}
                         </div>
+                        <div className="text-sm">Subtotal: {formatINR(subtotal)}</div>
+                        {roundOff !== 0 && <div className="text-sm">Round Off: {formatINR(roundOff)}</div>}
                         <div className="text-base font-medium">Total: {formatINR(total)}</div>
                         <div className="pt-2 grid grid-cols-2 gap-2">
                           <Button size="sm" className="w-full" asChild>
@@ -156,6 +174,8 @@ export default function Dashboard() {
                       <th className="py-2 pr-4">Customer</th>
                       <th className="py-2 pr-4">Remark</th>
                       <th className="py-2 pr-4">Items</th>
+                      <th className="py-2 pr-4">Subtotal</th>
+                      <th className="py-2 pr-4">Round Off</th>
                       <th className="py-2 pr-4">Total</th>
                       <th className="py-2 pr-4">Order Date</th>
                       <th className="py-2 pr-4">Delivery Date</th>
@@ -164,7 +184,9 @@ export default function Dashboard() {
                   </thead>
                   <tbody>
                     {orders.map((o) => {
-                      const total = o.items.reduce((s, it) => s + it.qty * it.price, 0);
+                      const subtotal = o.items.reduce((s, it) => s + it.qty * it.price, 0);
+                      const roundOff = o.roundOff || 0;
+                      const total = subtotal + roundOff;
                       return (
                         <tr key={o.id} className="border-b last:border-0">
                           <td className="py-2 pr-4 font-medium">{o.id}</td>
@@ -177,6 +199,8 @@ export default function Dashboard() {
                               </div>
                             ))}
                           </td>
+                          <td className="py-2 pr-4">{formatINR(subtotal)}</td>
+                          <td className="py-2 pr-4">{formatINR(roundOff)}</td>
                           <td className="py-2 pr-4">{formatINR(total)}</td>
                           <td className="py-2 pr-4">{formatDateTime(o.createdAt)}</td>
                           <td className="py-2 pr-4">{o.deliveryDate ? formatDateTime(o.deliveryDate) : ""}</td>
@@ -193,7 +217,7 @@ export default function Dashboard() {
                     })}
                     {orders.length === 0 && (
                       <tr>
-                        <td colSpan={8} className="py-6 text-center text-muted-foreground">No orders yet. Create your first one.</td>
+                        <td colSpan={10} className="py-6 text-center text-muted-foreground">No orders yet. Create your first one.</td>
                       </tr>
                     )}
                   </tbody>

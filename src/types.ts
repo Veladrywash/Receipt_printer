@@ -12,4 +12,5 @@ export type Order = {
   createdAt: string; // ISO string
   deliveryDate?: string; // ISO string, optional for now
   items: OrderItem[];
+  roundOff?: number;
 };

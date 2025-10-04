@@ -33,7 +33,9 @@ export default function PrintPreview() {
     );
   }
 
-  const total = order.items.reduce((s, it) => s + it.qty * it.price, 0);
+  const subtotal = order.items.reduce((s, it) => s + it.qty * it.price, 0);
+  const roundOff = order.roundOff || 0;
+  const total = subtotal + roundOff;
 
   return (
     <main className="min-h-screen flex flex-col items-center py-2">
@@ -82,8 +84,19 @@ export default function PrintPreview() {
         <hr className="receipt-hr" />
 
         <div className="total-row">
-          <div>Total:</div>
-          <div>{formatINR(total)}</div>
+          <div>Subtotal:</div>
+          <div>{formatINR(subtotal)}</div>
+        </div>
+        {roundOff !== 0 && (
+          <div className="total-row">
+            <div>Round Off:</div>
+            <div>{formatINR(roundOff)}</div>
+          </div>
+        )}
+        <hr className="receipt-hr" />
+        <div className="total-row">
+          <div><strong>Total:</strong></div>
+          <div><strong>{formatINR(total)}</strong></div>
         </div>
 
         <hr className="receipt-hr" />

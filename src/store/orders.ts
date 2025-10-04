@@ -25,7 +25,8 @@ export async function loadOrders(): Promise<Order[]> {
       remark: order.remark || '',
       createdAt: order.created_at,
       deliveryDate: order.delivery_date || '',
-      items: order.items || []
+      items: order.items || [],
+      roundOff: order.round_off || 0
     }));
   } catch (error) {
     console.error("Failed to load orders:", error);
@@ -35,7 +36,9 @@ export async function loadOrders(): Promise<Order[]> {
 
 export async function addOrder(order: Order) {
   try {
-    const total = order.items.reduce((sum, item) => sum + (item.qty * item.price), 0);
+    const subtotal = order.items.reduce((sum, item) => sum + (item.qty * item.price), 0);
+    const roundOff = order.roundOff || 0;
+    const total = subtotal + roundOff;
 
     const { error } = await supabase
       .from('orders')
@@ -46,6 +49,7 @@ export async function addOrder(order: Order) {
         created_at: order.createdAt,
         delivery_date: order.deliveryDate || null,
         items: order.items,
+        round_off: roundOff,
         total: total
       });
 
