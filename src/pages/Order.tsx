@@ -9,10 +9,20 @@ import { Order, OrderItem } from "@/types";
 import { addOrder } from "@/store/orders";
 import { formatINR } from "@/utils/format";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { usePWAInstall } from "@/hooks/usePWAInstall";
+import { Download } from "lucide-react";
+
+const getLocalDatetimeLocal = () => {
+  const d = new Date();
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
 
 export default function OrderPage() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { isInstallable, installPWA } = usePWAInstall();
+  
   const [customerName, setCustomerName] = useState("");
   const [remark, setRemark] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
@@ -26,7 +36,7 @@ export default function OrderPage() {
   const customerInputRef = useRef<HTMLInputElement | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
 
-  const [createdAt, setCreatedAt] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [createdAt, setCreatedAt] = useState<string>(getLocalDatetimeLocal());
   const [deliveryDate, setDeliveryDate] = useState<string>("");
   const [roundOff, setRoundOff] = useState<number>(0);
 
@@ -37,7 +47,7 @@ export default function OrderPage() {
     setItems([{ id: crypto.randomUUID(), name: "", qty: 1, price: 0 }]);
     setItemSearchTerms({});
     setCustomerSearchTerm("");
-    setCreatedAt(new Date().toISOString().split('T')[0]);
+    setCreatedAt(getLocalDatetimeLocal());
     setDeliveryDate("");
     setRoundOff(0);
     setIsPrinting(false);
@@ -168,7 +178,7 @@ export default function OrderPage() {
         customerName,
         remark,
         createdAt: new Date(createdAt).toISOString(),
-        deliveryDate,
+        deliveryDate: deliveryDate ? new Date(deliveryDate).toISOString() : "",
         items: filteredItems,
         roundOff: Number(roundOff) || 0,
       };
@@ -176,9 +186,13 @@ export default function OrderPage() {
       await addOrder(order);
       navigate(`/print/${encodeURIComponent(order.id)}`, { state: { order } });
       resetForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to create order:", error);
-      alert("Failed to create order. Please try again.");
+      if (error?.code === '23505' || error?.message?.toLowerCase().includes('duplicate')) {
+        alert("Order Number already exists! Please choose a different Order Number.");
+      } else {
+        alert("Failed to create order. Please try again.");
+      }
       setIsPrinting(false);
     }
   };
@@ -196,6 +210,11 @@ export default function OrderPage() {
           <h1 className="text-2xl md:text-3xl font-bold">VELA DRY WASH</h1>
         </div>
         <div className="flex gap-2 flex-wrap justify-end">
+          {isInstallable && (
+            <Button onClick={installPWA} className="gap-2 bg-green-600 hover:bg-green-700 text-white">
+              <Download className="w-4 h-4" /> Install App
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => navigate("/dashboard")}>Dashboard</Button>
           <Button variant="outline" onClick={logout}>Logout</Button>
         </div>
@@ -251,20 +270,20 @@ export default function OrderPage() {
               <div className="font-semibold text-base mb-1">Order & Delivery Dates</div>
               <div className="flex flex-col md:grid md:grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1">
-                  <Label htmlFor="order-date">Order Date</Label>
+                  <Label htmlFor="order-date">Order Date & Time</Label>
                   <Input
                     id="order-date"
-                    type="date"
+                    type="datetime-local"
                     value={createdAt}
                     onChange={e => setCreatedAt(e.target.value)}
                     required
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <Label htmlFor="delivery-date">Delivery Date</Label>
+                  <Label htmlFor="delivery-date">Delivery Date & Time</Label>
                   <Input
                     id="delivery-date"
-                    type="date"
+                    type="datetime-local"
                     value={deliveryDate}
                     onChange={e => setDeliveryDate(e.target.value)}
                     required

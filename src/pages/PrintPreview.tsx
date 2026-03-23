@@ -53,7 +53,7 @@ export default function PrintPreview() {
 
         <div className="receipt-small">Order Date: {new Date(order.createdAt).toLocaleString()}</div>
         {order.deliveryDate && (
-          <div className="receipt-small">Delivery Date: {new Date(order.deliveryDate).toLocaleDateString()}</div>
+          <div className="receipt-small">Delivery Date: {new Date(order.deliveryDate).toLocaleString()}</div>
         )}
         <div className="receipt-small">Order: {order.id}</div>
         <div className="receipt-small">Customer: {order.customerName || "-"}</div>
